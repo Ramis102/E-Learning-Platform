@@ -124,7 +124,7 @@ export const submitAttempt = async (
       if (isCorrect) correctCount++;
 
       return {
-        question: new Types.ObjectId(answer.questionId),
+        questionId: new Types.ObjectId(answer.questionId),
         selectedIndex: answer.selectedIndex,
         isCorrect,
       };
@@ -133,11 +133,12 @@ export const submitAttempt = async (
     const score = Math.round((correctCount / answers.length) * 100);
     const passed = score >= quiz.passMark;
 
-    const lecture = await Lecture.findById(quiz.lecture).select("course").lean();
-    if (!lecture) {
+    // Quiz now has direct course reference
+    const courseRef = quiz.course;
+    if (!courseRef) {
       res.status(500).json({
         success: false,
-        message: "Failed to fetch lecture for course reference",
+        message: "Quiz has no course reference",
       });
       return;
     }
@@ -145,10 +146,11 @@ export const submitAttempt = async (
     const attempt = await Attempt.create({
       student: req.user._id,
       quiz: new Types.ObjectId(quizId),
-      course: lecture.course,
+      course: courseRef,
       answers: gradedAnswers,
       score,
       passed,
+      completedAt: new Date(),
     });
 
     res.status(201).json({

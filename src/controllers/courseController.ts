@@ -484,7 +484,7 @@ export const enrollCourse = async (
     }
 
     // Check if already enrolled
-    if (studentProfile.enrolledCourses.includes(course._id)) {
+    if (studentProfile.enrolledCourses.some((id: any) => id.toString() === course._id.toString())) {
       res.status(400).json({
         success: false,
         message: "Already enrolled in this course",

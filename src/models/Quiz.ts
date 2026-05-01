@@ -4,7 +4,10 @@ import mongoose, { Document, Schema, Model, Types } from "mongoose";
 // Types & Interfaces
 // ---------------------------------------------------------------------------
 export interface IQuiz {
-  lecture: Types.ObjectId;
+  title: string;
+  module: Types.ObjectId;
+  course: Types.ObjectId;
+  lecture: Types.ObjectId | null;  // Optional backward-compat link
   questions: Types.ObjectId[];    // Refs to Question documents
   passMark: number;               // Minimum passing percentage (0–100)
   timeLimit: number;              // Time limit in minutes; 0 = unlimited
@@ -21,11 +24,26 @@ export interface IQuizDocument extends IQuiz, Document {
 // ---------------------------------------------------------------------------
 const quizSchema = new Schema<IQuizDocument>(
   {
+    title: {
+      type: String,
+      required: [true, "Quiz title is required"],
+      trim: true,
+      default: "Module Quiz",
+    },
+    module: {
+      type: Schema.Types.ObjectId,
+      ref: "Module",
+      required: [true, "Module reference is required"],
+    },
+    course: {
+      type: Schema.Types.ObjectId,
+      ref: "Course",
+      required: [true, "Course reference is required"],
+    },
     lecture: {
       type: Schema.Types.ObjectId,
       ref: "Lecture",
-      required: [true, "Lecture reference is required"],
-      unique: true,   // One quiz per lecture
+      default: null,
     },
     questions: [
       {
@@ -58,7 +76,8 @@ const quizSchema = new Schema<IQuizDocument>(
 // ---------------------------------------------------------------------------
 // Indexes
 // ---------------------------------------------------------------------------
-quizSchema.index({ lecture: 1 });
+quizSchema.index({ module: 1 });
+quizSchema.index({ course: 1 });
 
 // ---------------------------------------------------------------------------
 // Model

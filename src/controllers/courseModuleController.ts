@@ -77,7 +77,7 @@ const getModuleGraph = async (courseId: Types.ObjectId, moduleId: Types.ObjectId
   }
 
   const lecture = await Lecture.findOne({ course: courseId, module: moduleId }).lean();
-  const quiz = await Quiz.findById(moduleId).populate({
+  const quiz = await Quiz.findOne({ module: moduleId, course: courseId }).populate({
     path: "questions",
     options: { sort: { order: 1 } },
   });
@@ -133,16 +133,16 @@ export const listCourseModules = async (
 
     const lectureMap = new Map(lectures.map((lecture) => [lecture.module.toString(), lecture]));
 
-    const lectureIds = lectures.map((lecture) => lecture._id);
-    const quizzes = await Quiz.find({ lecture: { $in: lectureIds } })
+    // Find quizzes by module IDs (not lecture IDs)
+    const quizzes = await Quiz.find({ module: { $in: moduleIds } })
       .populate({ path: "questions", options: { sort: { order: 1 } } })
       .lean();
 
-    const quizMap = new Map(quizzes.map((quiz) => [quiz.lecture.toString(), quiz]));
+    const quizMap = new Map(quizzes.map((quiz) => [quiz.module.toString(), quiz]));
 
     const data = modules.map((moduleDoc) => {
       const lecture = lectureMap.get(moduleDoc._id.toString()) ?? null;
-      const quiz = lecture ? quizMap.get(lecture._id.toString()) ?? null : null;
+      const quiz = quizMap.get(moduleDoc._id.toString()) ?? null;
 
       return {
         module: moduleDoc,
@@ -267,7 +267,6 @@ export const createLectureModule = async (
     });
 
     const lectureDoc = await Lecture.create({
-      _id: moduleDoc._id,
       course: courseObjectId,
       module: moduleDoc._id,
       title: lecture.title,
@@ -425,7 +424,10 @@ export const updateCourseModule = async (
         }
       } else {
         await Quiz.create({
-          lecture: graph.lecture._id,
+          title: "Module Quiz",
+          module: moduleObjectId,
+          course: courseObjectId,
+          lecture: graph.lecture?._id || null,
           passMark: quiz.passMark,
           timeLimit: quiz.timeLimit,
           isActive: quiz.isActive,
@@ -589,13 +591,7 @@ export const createModuleQuiz = async (
       return;
     }
 
-    if (!graph.lecture) {
-      res.status(400).json({
-        success: false,
-        message: "Cannot create quiz because this module has no lecture",
-      });
-      return;
-    }
+    // Lecture is optional — quiz can exist without one
 
     if (graph.quiz) {
       res.status(409).json({
@@ -606,10 +602,13 @@ export const createModuleQuiz = async (
     }
 
     const { passMark, timeLimit, isActive } = req.body as CreateOrUpdateQuizBody;
+    const title = (req.body as any).title || "Module Quiz";
 
     const quiz = await Quiz.create({
-      _id: moduleObjectId,
-      lecture: graph.lecture._id,
+      title,
+      module: moduleObjectId,
+      course: courseObjectId,
+      lecture: graph.lecture?._id || null,
       passMark,
       timeLimit,
       isActive,

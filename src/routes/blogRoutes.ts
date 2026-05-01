@@ -4,7 +4,8 @@ import {
   getBlogs,
   addComment,
 } from "../controllers/blogController";
-import { protect } from "../middleware/authMiddleware";
+import { protect, authorizeRoles } from "../middleware/authMiddleware";
+import { UserRole } from "../models/User";
 
 const router = Router();
 
@@ -54,7 +55,7 @@ router.get("/", getBlogs);
  *       201:
  *         description: Successfully created blog
  */
-router.post("/", protect, createBlog);
+router.post("/", protect, authorizeRoles(UserRole.TEACHER, UserRole.ADMIN), createBlog);
 
 /**
  * @swagger
