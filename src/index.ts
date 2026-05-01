@@ -11,6 +11,10 @@ import connectDB from "./config/db";
 import swaggerSpec from "./config/swagger";
 import authRoutes from "./routes/authRoutes";
 import profileRoutes from "./routes/profileRoutes";
+import courseRoutes from "./routes/courseRoutes";
+import questionRoutes from "./routes/questionRoutes";
+import quizAttemptRoutes from "./routes/quizAttemptRoutes";
+import blogRoutes from "./routes/blogRoutes";
 
 // ---------------------------------------------------------------------------
 // App Initialization
@@ -34,6 +38,10 @@ app.use(express.urlencoded({ extended: true })); // URL-encoded body parser
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/courses", courseRoutes);
+app.use("/api/questions", questionRoutes);
+app.use("/api/attempts", quizAttemptRoutes);
+app.use("/api/blogs", blogRoutes);
 
 // ---------------------------------------------------------------------------
 // Swagger Documentation

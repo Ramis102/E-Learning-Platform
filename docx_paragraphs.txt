@@ -1,0 +1,122 @@
+﻿SEMESTER PROJECT SPECIFICATION
+EduLearn
+Online Learning Platform
+Read Lectures. Attempt Quizzes. Earn Certificates.
+1. Executive Summary
+EduLearn is a full-stack online learning platform built on the MERN stack (MongoDB, Express.js, React, Node.js). It enables instructors to publish structured courses composed of lecture modules, and allows students to study at their own pace, attempt auto-graded quizzes, and earn downloadable completion certificates. The platform addresses all three pillars of the course framework: fundamental business logic (course and quiz management), personal productivity (progress tracking, personalization, and PDF certificates), and collaboration (notifications, blog discussions, and real-time updates).
+2. Project Overview
+2.1 Vision
+To provide an accessible, secure, and engaging online learning experience that empowers students to master subjects through structured lectures and formative quizzes, while equipping instructors with powerful tools to create and monetize educational content.
+2.2 Core User Roles
+Student — browse courses, read lectures, attempt quizzes, track progress, earn certificates, write blog comments.
+Instructor — create and manage courses, upload lecture content, author quiz questions, view earnings analytics.
+Admin — manage all users and content, view platform-wide analytics, configure platform settings.
+2.3 Key Workflows
+Student Learning Flow
+Register / log in → Browse & search courses
+Enrol in a course (free or paid via Stripe)
+Read lecture modules in sequence
+Attempt end-of-module quizzes; receive instant feedback
+Complete all modules → Generate and download PDF certificate
+Instructor Content Flow
+Create a course with title, description, category, and price
+Add lecture modules (rich text + optional video embed)
+Author multiple-choice / true-false quiz questions per module
+Publish course → students can enrol
+Monitor earnings in the cash flow dashboard
+3. Technical Architecture
+3.1 MERN Stack Breakdown
+3.2 Folder Structure
+edulearn/ ├── client/ (React + Redux) ├── server/ (Express + Mongoose) └── shared/ (types, constants)
+client/src/components — Reusable UI components (Navbar, Sidebar, QuizCard, LectureReader, etc.)
+client/src/pages — Route-level page components (Dashboard, CoursePage, QuizPage, AdminPanel, etc.)
+client/src/store — Redux slices (authSlice, courseSlice, quizSlice, notificationSlice)
+server/routes — Express routers grouped by resource
+server/models — Mongoose schemas (User, Course, Lecture, Quiz, Question, Attempt, Transaction, Notification, Blog)
+server/middleware — Auth guard, role check, error handler, rate limiter
+4. Core Data Models
+All models are implemented with Mongoose. Key relationships are summarised below.
+5. Feature Requirements Matrix
+All 23 required features mapped to their implementation in EduLearn on the MERN stack.
+6. Feature Deep-Dives
+6.1 Dashboard, Navbar & Sidebar (Req. 1)
+The dashboard is the first screen a logged-in user sees. It is divided into three zones:
+Top Navbar — Logo, global search bar, notification bell (live badge count), and user avatar dropdown (Profile, Settings, Logout).
+Left Sidebar — Collapsible panel listing: My Courses, Browse, Bookmarks, My Certificates, Earnings (instructors only), and Admin Panel (admins only). Active route is highlighted.
+Main Content Area — Responsive grid of cards: In-Progress Courses (with % completion bars), Recommended Courses, Recent Quiz Scores, and Upcoming Deadlines.
+Redux manages sidebar open/close state globally so the layout persists across navigations.
+6.2 Authentication & Authorization (Req. 2 & 10)
+EduLearn implements layered security:
+Registration — Email + password (hashed with bcrypt, salt rounds = 12). Email verification link sent via Nodemailer.
+Login — Returns signed JWT (1 hour expiry) + refresh token (7 days, stored in HttpOnly cookie).
+Protected Routes — Express middleware verifies JWT on every private API call. React Router guards redirect unauthenticated users to /login.
+Role-Based Access Control — Three roles (student, instructor, admin). Middleware checks role before granting access to sensitive endpoints.
+Rate Limiting — express-rate-limit caps /auth/* at 10 requests per 15 minutes to prevent brute-force attacks.
+Helmet.js — Sets secure HTTP headers (CSP, HSTS, X-Frame-Options, etc.).
+6.3 Lecture Reader & Quiz Engine (Req. 8, 9, 13)
+The Lecture Reader is a focused reading interface:
+Left panel: module/lecture index (sidebar collapses on mobile).
+Centre panel: lecture content rendered from stored HTML (React-Quill output).
+Right panel (desktop): related notes and instructor tips.
+'Mark as Complete' button persists progress to the backend and unlocks the quiz.
+The Quiz Engine presents questions one at a time with a countdown timer. On submission, the server grades answers against the stored correct indices, returns the score, and — if passed — triggers certificate generation and a notification.
+6.4 AI Recommendation System (Req. 12)
+The recommendation engine runs server-side in a dedicated Express service:
+Content-Based Filtering — Courses are tagged with subject, difficulty, and skill keywords. When a student enrols, the system finds courses with overlapping tags.
+Collaborative Filtering — The system identifies students with similar enrolment histories and surfaces courses they completed with high scores.
+Score Weighting — Quiz pass rate and completion rate for each course influence the ranking of recommendations.
+API Endpoint — GET /api/recommendations/:userId returns a ranked list of up to 10 course IDs, cached in MongoDB for 24 hours.
+6.5 PDF Certificate Generation (Req. 15)
+When a student passes all quizzes in a course:
+The server triggers a Puppeteer headless browser to render an HTML certificate template with the student name, course title, completion date, and a unique UUID verification code.
+The rendered PDF is uploaded to Cloudinary and the URL is stored in the Attempt record.
+A notification is dispatched to the student, and the certificate appears in their profile under My Certificates.
+A public verification page (/verify/:uuid) allows anyone to confirm certificate authenticity without logging in.
+6.6 Cash Flow Statements (Req. 14)
+Instructors see a financial dashboard with:
+Credit entries — Each new enrolment in their course creates a credit Transaction record with the net amount (after platform fee).
+Debit entries — Stripe payout fees and refunds are recorded as debit transactions.
+Ledger View — A paginated table of all transactions, filterable by date range and type.
+Summary Cards — Total earned, total paid out, pending balance.
+Revenue Chart — Line chart (Chart.js) showing monthly earnings over the past 12 months.
+6.7 Analytics Dashboard (Req. 21)
+The admin analytics panel surfaces platform health metrics:
+Daily Active Users (DAU) — Aggregated from login timestamps.
+New Registrations — Bar chart by day/week/month.
+Top Courses by Enrolment — Ranked table.
+Quiz Pass Rates — Per-course heatmap.
+Revenue Overview — Platform total vs instructor payouts.
+All charts use Recharts components driven by MongoDB aggregation pipeline results returned via dedicated /admin/analytics/* Express routes.
+6.8 Real-Time Notifications (Req. 22)
+Notification delivery uses a hybrid push + pull approach:
+Socket.io — On login, the React client opens a socket connection authenticated by JWT. The server emits events to the user's room when relevant actions occur.
+MongoDB Persistence — Every notification is also saved to the Notification collection so users can retrieve missed alerts after reconnection.
+Redux Slice — The notificationSlice stores the notification list and unread count; the bell icon badge re-renders reactively.
+Types — new_quiz, grade_released, comment_reply, certificate_ready, new_enrolment (instructors), admin_broadcast.
+7. API Endpoint Summary
+All endpoints are prefixed with /api/v1 and served from api.edulearn.com.
+8. Security Strategy
+JWT with HttpOnly refresh tokens; bcrypt password hashing (rounds = 12).: Authentication
+Middleware enforces role checks on all mutation endpoints.: Authorization
+express-validator sanitises and validates every incoming request body.: Input Validation
+Mongoose parameterised queries prevent NoSQL injection; DOMPurify sanitises HTML content.: Injection Prevention
+express-rate-limit on /auth/* and /api/* endpoints.: Rate Limiting
+Helmet.js configures Content-Security-Policy, HSTS, X-Frame-Options, and more.: HTTP Security Headers
+Configured to allow only the registered sub-domain origins.: CORS
+All API keys and DB URIs stored in environment variables via dotenv; never committed to version control.: Secrets Management
+9. Testing & Code Quality
+Jest + React Testing Library for component and utility function tests.: Unit Tests
+Supertest for Express route integration tests.: API Tests
+ESLint (Airbnb config) + Prettier enforced via Husky pre-commit hooks.: Linting
+All PRs require peer review and passing CI checks before merge.: Code Reviews
+Global Express error handler returns structured JSON errors; React Error Boundaries catch UI crashes gracefully.: Error Monitoring
+10. Deployment & Sub-domain Plan (Req. 23)
+11. Alignment with Three Core Pillars
+11.1 Fundamental Business Logic
+EduLearn's primary business processes are course delivery and assessment. The platform handles course CRUD (Req. 13), enrolment via Stripe payments (Req. 20), lecture reading, quiz grading with instant feedback, and instructor cash flow accounting (Req. 14). Every core user journey — from signing up to earning a certificate — is driven by well-defined Express API routes and Mongoose business models.
+11.2 Personal Productivity
+Students benefit from a personalised experience through user profiles (Req. 19), AI-driven course recommendations (Req. 12), progress tracking visible on the dashboard (Req. 1), PDF certificate download (Req. 15), and a powerful search bar (Req. 16). Redux persists UI preferences and session state, while multi-device optimisation (Req. 3) means learners can switch from desktop to mobile without losing their place.
+11.3 Collaboration
+The platform fosters community through real-time notifications (Req. 22) delivered via Socket.io, a blog system with public commenting (Req. 6), social media sharing buttons (Req. 7), and contact/location pages (Req. 4). Instructors receive instant notification when a student enrols, and students are alerted the moment a grade is released, creating a responsive and engaged learning community.
+EduLearn — Semester Project Specification
+Built with MongoDB · Express.js · React · Node.js

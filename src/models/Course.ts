@@ -21,12 +21,6 @@ export enum CourseDifficulty {
   ADVANCED = "advanced",
 }
 
-export interface ICourseModule {
-  _id?: Types.ObjectId;
-  title: string;
-  order: number;
-}
-
 export interface ICourseRating {
   average: number;
   count: number;
@@ -36,7 +30,6 @@ export interface ICourse {
   title: string;
   description: string;
   instructor: Types.ObjectId;
-  modules: ICourseModule[];
   price: number;
   thumbnail: string;
   category: CourseCategory;
@@ -51,26 +44,6 @@ export interface ICourseDocument extends ICourse, Document {
   createdAt: Date;
   updatedAt: Date;
 }
-
-// ---------------------------------------------------------------------------
-// Sub-schemas
-// ---------------------------------------------------------------------------
-const courseModuleSchema = new Schema<ICourseModule>(
-  {
-    title: {
-      type: String,
-      required: [true, "Module title is required"],
-      trim: true,
-      maxlength: [200, "Module title cannot exceed 200 characters"],
-    },
-    order: {
-      type: Number,
-      required: [true, "Module order is required"],
-      min: [0, "Order must be a non-negative number"],
-    },
-  },
-  { _id: true }
-);
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -92,10 +65,6 @@ const courseSchema = new Schema<ICourseDocument>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: [true, "Instructor is required"],
-    },
-    modules: {
-      type: [courseModuleSchema],
-      default: [],
     },
     price: {
       type: Number,
@@ -152,8 +121,17 @@ const courseSchema = new Schema<ICourseDocument>(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+// Virtual relation to modules for convenient population
+courseSchema.virtual("modules", {
+  ref: "Module",
+  localField: "_id",
+  foreignField: "course",
+});
 
 // ---------------------------------------------------------------------------
 // Indexes

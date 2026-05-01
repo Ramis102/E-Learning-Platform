@@ -1,11 +1,12 @@
 import mongoose, { Document, Schema, Model, Types } from "mongoose";
+import Module from "./Module";
 
 // ---------------------------------------------------------------------------
 // Types & Interfaces
 // ---------------------------------------------------------------------------
 export interface ILecture {
   course: Types.ObjectId;
-  moduleId: Types.ObjectId;  // References ICourseModule._id embedded in Course
+  module: Types.ObjectId;     // References Module document
   title: string;
   content: string;           // Rich HTML from React-Quill
   videoUrl: string;
@@ -29,9 +30,23 @@ const lectureSchema = new Schema<ILectureDocument>(
       ref: "Course",
       required: [true, "Course reference is required"],
     },
-    moduleId: {
+    module: {
       type: Schema.Types.ObjectId,
+      ref: "Module",
       required: [true, "Module reference is required"],
+      validate: {
+        validator: async function (this: ILectureDocument, moduleId: Types.ObjectId) {
+          const linkedModule = await Module.findOne({
+            _id: moduleId,
+            course: this.course,
+          })
+            .select("_id")
+            .lean();
+
+          return Boolean(linkedModule);
+        },
+        message: "Module must belong to the same course as this lecture",
+      },
     },
     title: {
       type: String,
@@ -71,7 +86,7 @@ const lectureSchema = new Schema<ILectureDocument>(
 // Indexes
 // ---------------------------------------------------------------------------
 lectureSchema.index({ course: 1, order: 1 });
-lectureSchema.index({ course: 1, moduleId: 1 });
+lectureSchema.index({ course: 1, module: 1 });
 lectureSchema.index({ title: "text" }); // Full-text search
 
 // ---------------------------------------------------------------------------
