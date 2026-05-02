@@ -19,6 +19,7 @@ import blogRoutes from "./routes/blogRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import certificateRoutes from "./routes/certificateRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import progressRoutes from "./routes/progressRoutes";
 
 // ---------------------------------------------------------------------------
 // App Initialization
@@ -71,6 +72,7 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/progress", progressRoutes);
 
 // ---------------------------------------------------------------------------
 // Swagger Documentation

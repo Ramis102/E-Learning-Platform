@@ -10,6 +10,11 @@ import {
 import { authorizeRoles, protect } from "../middleware/authMiddleware";
 import { UserRole } from "../models/User";
 import courseModuleRoutes from "./courseModuleRoutes";
+import {
+  getCourseComments,
+  addCourseComment,
+  deleteCourseComment,
+} from "../controllers/courseCommentController";
 
 const router = Router();
 
@@ -232,6 +237,26 @@ router.post(
   protect,
   authorizeRoles(UserRole.STUDENT),
   enrollCourse
+);
+
+// ---------------------------------------------------------------------------
+// Course Comments / Reviews
+// ---------------------------------------------------------------------------
+
+router.get("/:id/comments", getCourseComments);
+
+router.post(
+  "/:id/comments",
+  protect,
+  authorizeRoles(UserRole.STUDENT),
+  addCourseComment
+);
+
+router.delete(
+  "/:id/comments/:commentId",
+  protect,
+  authorizeRoles(UserRole.STUDENT, UserRole.ADMIN),
+  deleteCourseComment
 );
 
 export default router;

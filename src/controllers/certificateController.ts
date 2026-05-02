@@ -9,6 +9,8 @@ import Attempt from "../models/Attempt";
 import Notification from "../models/Notification";
 import StudentProfile from "../models/StudentProfile";
 import User from "../models/User";
+import Lecture from "../models/Lecture";
+import LectureProgress from "../models/LectureProgress";
 import { AuthRequest } from "../middleware/authMiddleware";
 
 const isValidObjectId = (id: string): boolean => mongoose.isValidObjectId(id);
@@ -64,16 +66,37 @@ export const generateCertificate = async (
       return;
     }
 
+    // Check lecture completion
+    const totalLectures = await Lecture.countDocuments({
+      course: new Types.ObjectId(courseId),
+    });
+
+    if (totalLectures > 0) {
+      const completedLectures = await LectureProgress.countDocuments({
+        student: req.user._id,
+        course: new Types.ObjectId(courseId),
+      });
+
+      if (completedLectures < totalLectures) {
+        const remaining = totalLectures - completedLectures;
+        res.status(400).json({
+          success: false,
+          message: `You must complete all lectures first. ${remaining} of ${totalLectures} lecture(s) remaining.`,
+        });
+        return;
+      }
+    }
+
     // Find all quizzes for this course directly
     const quizzes = await Quiz.find({
       course: new Types.ObjectId(courseId),
       isActive: true,
     }).lean();
 
-    if (quizzes.length === 0) {
+    if (quizzes.length === 0 && totalLectures === 0) {
       res.status(400).json({
         success: false,
-        message: "This course has no quizzes — certificate cannot be generated",
+        message: "This course has no content — certificate cannot be generated",
       });
       return;
     }

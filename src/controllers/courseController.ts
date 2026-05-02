@@ -13,6 +13,8 @@ import StudentProfile from "../models/StudentProfile";
 import TeacherProfile from "../models/TeacherProfile";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { UserRole } from "../models/User";
+import LectureProgress from "../models/LectureProgress";
+import User from "../models/User";
 
 interface CreateCourseBody {
   title?: string;
@@ -334,9 +336,15 @@ export const updateCourse = async (
       .populate("instructor", "name email avatar")
       .populate({ path: "modules", options: { sort: { order: 1 } } });
 
+    // Inform about unpublish behavior
+    const unpublishNote =
+      isPublished === false
+        ? " Course hidden from browse. Enrolled students retain access."
+        : "";
+
     res.status(200).json({
       success: true,
-      message: "Course updated successfully",
+      message: `Course updated successfully.${unpublishNote}`,
       data: updatedCourse,
     });
   } catch (error) {
@@ -510,5 +518,109 @@ export const enrollCourse = async (
       success: false,
       message: "Internal server error while enrolling in course",
     });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/courses/:id/enrolled-students
+// ---------------------------------------------------------------------------
+export const getEnrolledStudents = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const user = (req as AuthRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Not authorized" });
+      return;
+    }
+
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!id || !isValidObjectId(id)) {
+      res.status(400).json({ success: false, message: "Invalid course ID" });
+      return;
+    }
+
+    const course = await Course.findById(id).lean();
+    if (!course) {
+      res.status(404).json({ success: false, message: "Course not found" });
+      return;
+    }
+
+    // Only instructor or admin can view
+    if (
+      user.role !== UserRole.ADMIN &&
+      course.instructor.toString() !== user._id.toString()
+    ) {
+      res.status(403).json({ success: false, message: "Forbidden" });
+      return;
+    }
+
+    // Find all student profiles enrolled in this course
+    const profiles = await StudentProfile.find({
+      enrolledCourses: new Types.ObjectId(id),
+    })
+      .populate("userId", "name email avatar createdAt")
+      .lean();
+
+    // Get total lectures for progress calculation
+    const totalLectures = await Lecture.countDocuments({ course: new Types.ObjectId(id) });
+
+    // Get all progress records and quiz attempts for this course
+    const studentIds = profiles.map((p: any) => p.userId?._id).filter(Boolean);
+
+    const [allProgress, allAttempts] = await Promise.all([
+      LectureProgress.find({
+        student: { $in: studentIds },
+        course: new Types.ObjectId(id),
+      }).lean(),
+      Attempt.find({
+        student: { $in: studentIds },
+        course: new Types.ObjectId(id),
+      }).lean(),
+    ]);
+
+    const students = profiles.map((p: any) => {
+      const uid = p.userId?._id?.toString();
+      const lecturesCompleted = allProgress.filter(
+        (pr) => pr.student.toString() === uid
+      ).length;
+      const attempts = allAttempts.filter(
+        (a) => a.student.toString() === uid
+      );
+      const bestScore = attempts.length
+        ? Math.max(...attempts.map((a) => a.score))
+        : 0;
+      const quizzesPassed = new Set(
+        attempts.filter((a) => a.passed).map((a) => a.quiz.toString())
+      ).size;
+
+      return {
+        _id: uid,
+        name: p.userId?.name,
+        email: p.userId?.email,
+        avatar: p.userId?.avatar,
+        enrolledAt: p.updatedAt || p.createdAt,
+        lecturesCompleted,
+        totalLectures,
+        progressPercent:
+          totalLectures > 0
+            ? Math.round((lecturesCompleted / totalLectures) * 100)
+            : 0,
+        bestScore,
+        quizzesPassed,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalEnrolled: students.length,
+        students,
+      },
+    });
+  } catch (error) {
+    console.error("GetEnrolledStudents Error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };

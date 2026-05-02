@@ -17,6 +17,8 @@ import Attempt from "./models/Attempt";
 import Blog from "./models/Blog";
 import Notification from "./models/Notification";
 import Certificate from "./models/Certificate";
+import CourseComment from "./models/CourseComment";
+import LectureProgress from "./models/LectureProgress";
 
 const seed = async () => {
   await connectDB();
@@ -27,6 +29,7 @@ const seed = async () => {
     Course.deleteMany({}), Module.deleteMany({}), Lecture.deleteMany({}),
     Quiz.deleteMany({}), Question.deleteMany({}), Attempt.deleteMany({}),
     Blog.deleteMany({}), Notification.deleteMany({}), Certificate.deleteMany({}),
+    CourseComment.deleteMany({}), LectureProgress.deleteMany({}),
   ]);
 
   const hash = await bcrypt.hash("password123", 12);
@@ -243,6 +246,31 @@ const seed = async () => {
     { recipient: t1._id, type: "new_enrolment", message: "Alice Johnson enrolled in your course.", link: `/courses/${courses[0]._id}`, isRead: false },
     { recipient: s2._id, type: "grade_released", message: "Your DSA quiz has been graded. Score: 33%.", link: "/dashboard", isRead: true },
   ]);
+
+  // ── Course Comments & Ratings ──────────────────────────────────────────
+  console.log("💬 Creating course comments...");
+  await CourseComment.create([
+    { student: s1._id, course: courses[0]._id, content: "Excellent course! The DSA explanations were very clear and the quizzes really helped reinforce the concepts.", rating: 5 },
+    { student: s2._id, course: courses[0]._id, content: "Good content but the pace was a bit fast for beginners. Would recommend some prerequisite knowledge.", rating: 4 },
+    { student: s3._id, course: courses[0]._id, content: "Great course overall. The practical examples were very helpful.", rating: 4 },
+    { student: s1._id, course: courses[1]._id, content: "Amazing web development course! Learned so much about modern frameworks.", rating: 5 },
+    { student: s2._id, course: courses[2]._id, content: "The machine learning content is well structured and easy to follow.", rating: 5 },
+  ]);
+
+  // ── Lecture Progress ────────────────────────────────────────────────────
+  console.log("📈 Creating lecture progress...");
+  // Mark some lectures as completed for student 1
+  const allLectures = await Lecture.find({ course: courses[0]._id }).lean();
+  if (allLectures.length > 0) {
+    const progressRecords = allLectures.slice(0, Math.min(2, allLectures.length)).map(lec => ({
+      student: s1._id,
+      lecture: lec._id,
+      module: lec.module,
+      course: courses[0]._id,
+      completedAt: new Date(),
+    }));
+    await LectureProgress.create(progressRecords);
+  }
 
   console.log("\n✅ Database seeded successfully!");
   console.log("────────────────────────────────────────");
