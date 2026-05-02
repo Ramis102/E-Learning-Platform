@@ -6,6 +6,7 @@ import {
   getCourseById,
   getCourses,
   updateCourse,
+  getEnrolledStudents,
 } from "../controllers/courseController";
 import { authorizeRoles, protect } from "../middleware/authMiddleware";
 import { UserRole } from "../models/User";
@@ -15,10 +16,21 @@ import {
   addCourseComment,
   deleteCourseComment,
 } from "../controllers/courseCommentController";
+import { getTeacherStudents } from "../controllers/teacherAnalyticsController";
 
 const router = Router();
 
 router.use("/:courseId/modules", courseModuleRoutes);
+
+// ---------------------------------------------------------------------------
+// Teacher aggregate student analytics (MUST be before /:id routes)
+// ---------------------------------------------------------------------------
+router.get(
+  "/teacher/my-students",
+  protect,
+  authorizeRoles(UserRole.TEACHER),
+  getTeacherStudents
+);
 
 /**
  * @swagger
@@ -237,6 +249,16 @@ router.post(
   protect,
   authorizeRoles(UserRole.STUDENT),
   enrollCourse
+);
+
+// ---------------------------------------------------------------------------
+// Enrolled Students (teacher/admin only)
+// ---------------------------------------------------------------------------
+router.get(
+  "/:id/enrolled-students",
+  protect,
+  authorizeRoles(UserRole.TEACHER, UserRole.ADMIN),
+  getEnrolledStudents
 );
 
 // ---------------------------------------------------------------------------

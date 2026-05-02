@@ -96,6 +96,31 @@ export const getBlogs = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const getBlogById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+    if (!id || !isValidObjectId(id)) {
+      res.status(400).json({ success: false, message: "Invalid blog ID" });
+      return;
+    }
+
+    const blog = await Blog.findById(id)
+      .populate("author", "name email avatar role")
+      .populate("comments.author", "name email avatar");
+
+    if (!blog) {
+      res.status(404).json({ success: false, message: "Blog not found" });
+      return;
+    }
+
+    res.status(200).json({ success: true, data: blog });
+  } catch (error) {
+    console.error("GetBlogById Error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 export const addComment = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as AuthRequest).user;

@@ -19,6 +19,7 @@ import Notification from "./models/Notification";
 import Certificate from "./models/Certificate";
 import CourseComment from "./models/CourseComment";
 import LectureProgress from "./models/LectureProgress";
+import StudentCourseStatsModel from "./models/StudentCourseStats";
 
 const seed = async () => {
   await connectDB();
@@ -30,6 +31,7 @@ const seed = async () => {
     Quiz.deleteMany({}), Question.deleteMany({}), Attempt.deleteMany({}),
     Blog.deleteMany({}), Notification.deleteMany({}), Certificate.deleteMany({}),
     CourseComment.deleteMany({}), LectureProgress.deleteMany({}),
+    StudentCourseStatsModel.deleteMany({}),
   ]);
 
   const hash = await bcrypt.hash("password123", 12);
@@ -191,29 +193,55 @@ const seed = async () => {
     }
   }
 
-  // ── Quiz Attempts (student1 passes all DSA quizzes) ────────────────────
+  // ── Quiz Attempts ──────────────────────────────────────────────────────
   console.log("📝 Creating quiz attempts...");
+  // Helper to create attempt
+  const createAttempt = async (student: any, quizDoc: any, courseId: any, scoreOverride?: number) => {
+    const questions = await Question.find({ quiz: quizDoc._id }).lean();
+    const score = scoreOverride ?? Math.floor(Math.random() * 60 + 40);
+    const passed = score >= (quizDoc.passMark || 60);
+    return Attempt.create({
+      student: student._id, quiz: quizDoc._id, course: courseId,
+      completedAt: new Date(Date.now() - Math.random() * 7 * 86400000),
+      answers: questions.map((q, i) => ({
+        questionId: q._id,
+        selectedIndex: passed ? q.correctIndex : (i === 0 ? q.correctIndex : 0),
+        isCorrect: passed ? true : i === 0,
+      })),
+      score, passed,
+    });
+  };
+
+  // S1 passes all DSA quizzes
   const dsaQuizzes = await Quiz.find({ course: courses[0]._id }).lean();
-  for (const quiz of dsaQuizzes) {
-    const questions = await Question.find({ quiz: quiz._id }).lean();
-    await Attempt.create({
-      student: s1._id, quiz: quiz._id, course: courses[0]._id, completedAt: new Date(),
-      answers: questions.map((q) => ({ questionId: q._id, selectedIndex: q.correctIndex, isCorrect: true })),
-      score: 100, passed: true,
-    });
-  }
+  for (const q of dsaQuizzes) await createAttempt(s1, q, courses[0]._id, 100);
 
-  // Student2 partial attempt on DSA
-  if (dsaQuizzes[0]) {
-    const q0questions = await Question.find({ quiz: dsaQuizzes[0]._id }).lean();
-    await Attempt.create({
-      student: s2._id, quiz: dsaQuizzes[0]._id, course: courses[0]._id, completedAt: new Date(),
-      answers: q0questions.map((q, i) => ({ questionId: q._id, selectedIndex: i === 0 ? q.correctIndex : 0, isCorrect: i === 0 })),
-      score: 33, passed: false,
-    });
-  }
+  // S1 attempts Web Dev quizzes
+  const webQuizzes = await Quiz.find({ course: courses[1]._id }).lean();
+  if (webQuizzes[0]) await createAttempt(s1, webQuizzes[0], courses[1]._id, 85);
 
-  // ── Certificate for student1 on DSA ────────────────────────────────────
+  // S2 partial attempt on DSA
+  if (dsaQuizzes[0]) await createAttempt(s2, dsaQuizzes[0], courses[0]._id, 33);
+  // S2 attempts Calculus quiz
+  const calcQuizzes = await Quiz.find({ course: courses[2]._id }).lean();
+  if (calcQuizzes[0]) await createAttempt(s2, calcQuizzes[0], courses[2]._id, 72);
+
+  // S3 attempts Web Dev and Linear Algebra
+  if (webQuizzes[0]) await createAttempt(s3, webQuizzes[0], courses[1]._id, 90);
+  const laQuizzes = await Quiz.find({ course: courses[3]._id }).lean();
+  if (laQuizzes[0]) await createAttempt(s3, laQuizzes[0], courses[3]._id, 55);
+
+  // S4 attempts DSA and ML
+  if (dsaQuizzes[0]) await createAttempt(s4, dsaQuizzes[0], courses[0]._id, 78);
+  const mlQuizzes = await Quiz.find({ course: courses[4]._id }).lean();
+  if (mlQuizzes[0]) await createAttempt(s4, mlQuizzes[0], courses[4]._id, 65);
+
+  // S5 attempts Calculus and Stats
+  if (calcQuizzes[0]) await createAttempt(s5, calcQuizzes[0], courses[2]._id, 88);
+  const statsQuizzes = await Quiz.find({ course: courses[5]._id }).lean();
+  if (statsQuizzes[0]) await createAttempt(s5, statsQuizzes[0], courses[5]._id, 70);
+
+  // ── Certificate for student1 on DSA (enrolled + all quizzes passed) ────
   console.log("🏆 Creating certificates...");
   await Certificate.create({ student: s1._id, course: courses[0]._id, score: 100, completedAt: new Date() });
 
@@ -221,21 +249,35 @@ const seed = async () => {
   console.log("📰 Creating blog posts...");
   await Blog.create([
     {
-      title: "Getting Started with Data Structures", author: t1._id, content: "<p>Data structures are the foundation of efficient programming...</p>",
-      tags: ["cs", "beginner"], isPublished: true,
+      title: "Getting Started with Data Structures",
+      author: t1._id,
+      content: "<h2>Why Data Structures Matter</h2><p>Data structures are the foundation of efficient programming. They determine how data is organized, stored, and manipulated in computer memory.</p><h3>Key Concepts</h3><ul><li><strong>Arrays</strong> — contiguous memory blocks for fast indexed access</li><li><strong>Linked Lists</strong> — dynamic structures for efficient insertion/deletion</li><li><strong>Trees</strong> — hierarchical structures for search and sorting</li><li><strong>Graphs</strong> — networks of connected nodes</li></ul><p>Understanding these structures will make you a significantly better programmer, regardless of the language you use.</p><blockquote>The difference between a good programmer and a great one is their understanding of data structures. — Anonymous</blockquote>",
+      tags: ["cs", "beginner", "algorithms"],
+      isPublished: true,
       comments: [
         { author: s1._id, content: "Great article! Very helpful for beginners.", createdAt: new Date() },
         { author: s2._id, content: "Could you cover hash maps next?", createdAt: new Date() },
+        { author: s4._id, content: "The tree section was especially clear.", createdAt: new Date() },
       ],
     },
     {
-      title: "Why Learn Calculus?", author: t2._id, content: "<p>Calculus is essential for understanding change and motion in the physical world...</p>",
-      tags: ["math", "education"], isPublished: true,
+      title: "Why Learn Calculus?",
+      author: t2._id,
+      content: "<h2>Calculus in the Real World</h2><p>Calculus is essential for understanding change and motion in the physical world. From physics to economics, calculus provides the mathematical framework for analyzing dynamic systems.</p><h3>Applications</h3><ol><li><strong>Physics</strong> — velocity, acceleration, and forces</li><li><strong>Engineering</strong> — optimization and signal processing</li><li><strong>Economics</strong> — marginal analysis and growth models</li><li><strong>Machine Learning</strong> — gradient descent and backpropagation</li></ol><p>Even if you never derive an integral by hand again, understanding calculus fundamentally changes how you think about problems.</p>",
+      tags: ["math", "education", "science"],
+      isPublished: true,
       comments: [{ author: s3._id, content: "Inspired me to take the course!", createdAt: new Date() }],
     },
     {
-      title: "The Future of Machine Learning", author: t3._id, content: "<p>Machine learning continues to transform industries across the globe...</p>",
-      tags: ["ml", "ai", "future"], isPublished: true, comments: [],
+      title: "The Future of Machine Learning",
+      author: t3._id,
+      content: "<h2>AI is Transforming Every Industry</h2><p>Machine learning continues to transform industries across the globe. From healthcare diagnostics to autonomous vehicles, ML models are becoming increasingly sophisticated.</p><h3>Emerging Trends</h3><ul><li><strong>Large Language Models</strong> — GPT, Claude, and beyond</li><li><strong>Computer Vision</strong> — real-time object detection and recognition</li><li><strong>Reinforcement Learning</strong> — training agents through interaction</li><li><strong>Edge ML</strong> — running models on mobile and IoT devices</li></ul><h3>Getting Started</h3><p>The best way to learn ML is through hands-on projects. Start with simple linear regression, then progress to neural networks. Libraries like TensorFlow and PyTorch make it easier than ever.</p>",
+      tags: ["ml", "ai", "future", "technology"],
+      isPublished: true,
+      comments: [
+        { author: s1._id, content: "Fascinating read! The LLM section was particularly interesting.", createdAt: new Date() },
+        { author: s5._id, content: "Would love a follow-up on reinforcement learning.", createdAt: new Date() },
+      ],
     },
   ]);
 
@@ -254,22 +296,59 @@ const seed = async () => {
     { student: s2._id, course: courses[0]._id, content: "Good content but the pace was a bit fast for beginners. Would recommend some prerequisite knowledge.", rating: 4 },
     { student: s3._id, course: courses[0]._id, content: "Great course overall. The practical examples were very helpful.", rating: 4 },
     { student: s1._id, course: courses[1]._id, content: "Amazing web development course! Learned so much about modern frameworks.", rating: 5 },
-    { student: s2._id, course: courses[2]._id, content: "The machine learning content is well structured and easy to follow.", rating: 5 },
+    { student: s2._id, course: courses[2]._id, content: "The calculus content is well structured and easy to follow.", rating: 5 },
   ]);
 
-  // ── Lecture Progress ────────────────────────────────────────────────────
+  // ── Lecture Progress (richer data) ─────────────────────────────────────
   console.log("📈 Creating lecture progress...");
-  // Mark some lectures as completed for student 1
-  const allLectures = await Lecture.find({ course: courses[0]._id }).lean();
-  if (allLectures.length > 0) {
-    const progressRecords = allLectures.slice(0, Math.min(2, allLectures.length)).map(lec => ({
-      student: s1._id,
-      lecture: lec._id,
-      module: lec.module,
-      course: courses[0]._id,
-      completedAt: new Date(),
-    }));
-    await LectureProgress.create(progressRecords);
+  // S1: all DSA lectures + 1 web dev lecture
+  const dsaLectures = await Lecture.find({ course: courses[0]._id }).lean();
+  for (const lec of dsaLectures) {
+    await LectureProgress.create({ student: s1._id, lecture: lec._id, module: lec.module, course: courses[0]._id, completedAt: new Date(Date.now() - Math.random() * 5 * 86400000) });
+  }
+  const webLectures = await Lecture.find({ course: courses[1]._id }).lean();
+  if (webLectures[0]) {
+    await LectureProgress.create({ student: s1._id, lecture: webLectures[0]._id, module: webLectures[0].module, course: courses[1]._id, completedAt: new Date() });
+  }
+  // S2: 1 DSA lecture
+  if (dsaLectures[0]) {
+    await LectureProgress.create({ student: s2._id, lecture: dsaLectures[0]._id, module: dsaLectures[0].module, course: courses[0]._id, completedAt: new Date() });
+  }
+  // S3: 2 web dev lectures
+  for (const lec of webLectures.slice(0, 2)) {
+    await LectureProgress.create({ student: s3._id, lecture: lec._id, module: lec.module, course: courses[1]._id, completedAt: new Date() });
+  }
+
+  // ── Pre-computed StudentCourseStats ────────────────────────────────────
+  console.log("📊 Computing StudentCourseStats...");
+  const StudentCourseStats = (await import("./models/StudentCourseStats")).default;
+  // For each enrollment, compute and store stats
+  for (const [profile, courseIds] of enrollments) {
+    const studentId = profile.userId;
+    for (const courseId of courseIds) {
+      const lectures = await Lecture.find({ course: courseId }).lean();
+      const lecturesCompleted = await LectureProgress.countDocuments({ student: studentId, course: courseId });
+      const quizzesAll = await Quiz.find({ course: courseId, isActive: true }).lean();
+      const attempts = await Attempt.find({ student: studentId, course: courseId }).lean();
+      const passedQuizIds = new Set(attempts.filter(a => a.passed).map(a => String(a.quiz)));
+      const scores = attempts.map(a => a.score);
+      const avgScore = scores.length > 0 ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : 0;
+      const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
+
+      await StudentCourseStats.create({
+        student: studentId,
+        course: courseId,
+        lecturesCompleted,
+        totalLectures: lectures.length,
+        quizzesAttempted: new Set(attempts.map(a => String(a.quiz))).size,
+        quizzesPassed: passedQuizIds.size,
+        totalQuizzes: quizzesAll.length,
+        bestScore,
+        averageScore: avgScore,
+        totalAttempts: attempts.length,
+        lastActivityAt: new Date(),
+      });
+    }
   }
 
   console.log("\n✅ Database seeded successfully!");
@@ -284,3 +363,4 @@ const seed = async () => {
 };
 
 seed().catch((err) => { console.error("Seed Error:", err); process.exit(1); });
+

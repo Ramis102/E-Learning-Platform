@@ -9,6 +9,7 @@ import { UserRole } from "../models/User";
 
 interface SubmitAttemptBody {
   quizId: string;
+  startedAt?: string; // ISO timestamp when quiz was loaded
   answers: Array<{
     questionId: string;
     selectedIndex: number;
@@ -38,7 +39,7 @@ export const submitAttempt = async (
       return;
     }
 
-    const { quizId, answers } = req.body as SubmitAttemptBody;
+    const { quizId, answers, startedAt } = req.body as SubmitAttemptBody;
 
     if (!quizId || !isValidObjectId(quizId)) {
       res.status(400).json({
@@ -90,6 +91,20 @@ export const submitAttempt = async (
         message: "Quiz is not active",
       });
       return;
+    }
+
+    // Timer enforcement
+    if (quiz.timeLimit > 0 && startedAt) {
+      const startTime = new Date(startedAt).getTime();
+      const now = Date.now();
+      const allowedMs = (quiz.timeLimit * 60 + 30) * 1000; // timeLimit in minutes + 30s grace
+      if (now - startTime > allowedMs) {
+        res.status(400).json({
+          success: false,
+          message: "Quiz time limit exceeded. Your submission was too late.",
+        });
+        return;
+      }
     }
 
     const questions = await Question.find({ _id: { $in: quiz.questions } }).lean();

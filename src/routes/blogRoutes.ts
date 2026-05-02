@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createBlog,
   getBlogs,
+  getBlogById,
   addComment,
 } from "../controllers/blogController";
 import { protect, authorizeRoles } from "../middleware/authMiddleware";
@@ -9,18 +10,8 @@ import { UserRole } from "../models/User";
 
 const router = Router();
 
-/**
- * @swagger
- * /api/blogs:
- *   get:
- *     tags: [Blogs]
- *     summary: Get all published blogs
- *     description: Retrieve all published blogs safely populated.
- *     responses:
- *       200:
- *         description: Successfully fetched blogs
- */
 router.get("/", getBlogs);
+router.get("/:id", getBlogById);
 
 /**
  * @swagger

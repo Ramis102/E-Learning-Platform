@@ -550,7 +550,7 @@ export const getEnrolledStudents = async (
     // Only instructor or admin can view
     if (
       user.role !== UserRole.ADMIN &&
-      course.instructor.toString() !== user._id.toString()
+      String(course.instructor) !== String(user._id)
     ) {
       res.status(403).json({ success: false, message: "Forbidden" });
       return;
