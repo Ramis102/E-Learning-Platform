@@ -32,8 +32,8 @@ export const sendVerificationEmail = async (
 ): Promise<void> => {
   const transporter = createTransporter();
 
-  const baseUrl = process.env.CLIENT_URL || `http://localhost:${process.env.PORT || 5000}`;
-  const verifyUrl = `${baseUrl}/api/auth/verify-email/${verificationToken}`;
+  const baseUrl = process.env.CLIENT_URL || `http://localhost:5173`;
+  const verifyUrl = `${baseUrl}/verify-email/${verificationToken}`;
 
   const mailOptions = {
     from: `"E-Learning Platform" <${process.env.SMTP_USER}>`,
