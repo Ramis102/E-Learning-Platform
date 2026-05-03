@@ -17,6 +17,7 @@ import {
   deleteCourseComment,
 } from "../controllers/courseCommentController";
 import { getTeacherStudents } from "../controllers/teacherAnalyticsController";
+import { chatWithTutor } from "../controllers/tutorController";
 
 const router = Router();
 
@@ -279,6 +280,13 @@ router.delete(
   protect,
   authorizeRoles(UserRole.STUDENT, UserRole.ADMIN),
   deleteCourseComment
+);
+
+router.post(
+  "/:courseId/chat",
+  protect,
+  authorizeRoles(UserRole.STUDENT),
+  chatWithTutor
 );
 
 export default router;
