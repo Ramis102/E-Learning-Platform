@@ -21,8 +21,22 @@ import CourseComment from "./models/CourseComment";
 import LectureProgress from "./models/LectureProgress";
 import StudentCourseStatsModel from "./models/StudentCourseStats";
 
-const seed = async () => {
-  await connectDB();
+type SeedOptions = {
+  skipConnect?: boolean;
+  shouldDisconnect?: boolean;
+  shouldExit?: boolean;
+};
+
+export const runSeed = async (options: SeedOptions = {}) => {
+  const {
+    skipConnect = false,
+    shouldDisconnect = true,
+    shouldExit = true,
+  } = options;
+
+  if (!skipConnect) {
+    await connectDB({ autoSeedAtlas: false });
+  }
   console.log("🗑️  Clearing existing data...");
 
   await Promise.all([
@@ -358,9 +372,16 @@ const seed = async () => {
   console.log("Admin login:     admin@edulearn.com    / password123");
   console.log("────────────────────────────────────────\n");
 
-  await mongoose.disconnect();
-  process.exit(0);
+  if (shouldDisconnect) {
+    await mongoose.disconnect();
+  }
+
+  if (shouldExit) {
+    process.exit(0);
+  }
 };
 
-seed().catch((err) => { console.error("Seed Error:", err); process.exit(1); });
+if (require.main === module) {
+  runSeed().catch((err) => { console.error("Seed Error:", err); process.exit(1); });
+}
 
