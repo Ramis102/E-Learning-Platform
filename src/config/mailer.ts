@@ -1,24 +1,15 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-// ---------------------------------------------------------------------------
-// Create reusable transporter
-// ---------------------------------------------------------------------------
+const getResendClient = () => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is not defined in environment variables");
+  }
+  return new Resend(apiKey);
+};
 
-const createTransporter = () => {
-  // ── Gmail SMTP (free — use App Password, not your real password) ────
-  // To set up:
-  //   1. Enable 2-Step Verification on your Google account
-  //   2. Go to https://myaccount.google.com/apppasswords
-  //   3. Generate an App Password for "Mail"
-  //   4. Use that 16-character password as SMTP_PASS in .env
-
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+const getFromAddress = () => {
+  return process.env.EMAIL_FROM || "onboarding@resend.dev";
 };
 
 // ---------------------------------------------------------------------------
@@ -30,13 +21,13 @@ export const sendVerificationEmail = async (
   userName: string,
   verificationToken: string
 ): Promise<void> => {
-  const transporter = createTransporter();
+  const resend = getResendClient();
 
   const baseUrl = process.env.CLIENT_URL || `http://localhost:5173`;
   const verifyUrl = `${baseUrl}/verify-email/${verificationToken}`;
 
-  const mailOptions = {
-    from: `"E-Learning Platform" <${process.env.SMTP_USER}>`,
+  const response = await resend.emails.send({
+    from: `E-Learning Platform <${getFromAddress()}>`,
     to: toEmail,
     subject: "Verify your email — E-Learning Platform",
     html: `
@@ -98,7 +89,9 @@ export const sendVerificationEmail = async (
       </body>
       </html>
     `,
-  };
+  });
 
-  await transporter.sendMail(mailOptions);
+  if (response.error) {
+    throw new Error(response.error.message || "Failed to send verification email");
+  }
 };
