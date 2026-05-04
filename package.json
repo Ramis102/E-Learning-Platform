@@ -14,6 +14,8 @@
   "license": "ISC",
   "description": "Modern dual-portal e-learning platform backend",
   "dependencies": {
+    "@langchain/core": "^1.1.44",
+    "@langchain/groq": "^1.2.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
