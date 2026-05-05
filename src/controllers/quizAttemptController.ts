@@ -6,6 +6,7 @@ import Attempt from "../models/Attempt";
 import Lecture from "../models/Lecture";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { UserRole } from "../models/User";
+import { updateStudentCourseStats } from "../utils/updateStudentCourseStats";
 
 interface SubmitAttemptBody {
   quizId: string;
@@ -166,6 +167,10 @@ export const submitAttempt = async (
       score,
       passed,
       completedAt: new Date(),
+    });
+
+    updateStudentCourseStats(req.user._id, courseRef).catch((statsError) => {
+      console.error("UpdateStudentCourseStats Error:", statsError);
     });
 
     res.status(201).json({

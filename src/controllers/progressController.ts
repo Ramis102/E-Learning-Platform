@@ -3,6 +3,7 @@ import mongoose, { Types } from "mongoose";
 import LectureProgress from "../models/LectureProgress";
 import StudentProfile from "../models/StudentProfile";
 import { AuthRequest } from "../middleware/authMiddleware";
+import { updateStudentCourseStats } from "../utils/updateStudentCourseStats";
 
 const isValidObjectId = (id: string): boolean => mongoose.isValidObjectId(id);
 
@@ -73,6 +74,10 @@ export const markLectureComplete = async (
       },
       { upsert: true, new: true }
     );
+
+    updateStudentCourseStats(user._id, courseId).catch((statsError) => {
+      console.error("UpdateStudentCourseStats Error:", statsError);
+    });
 
     res.status(200).json({
       success: true,
